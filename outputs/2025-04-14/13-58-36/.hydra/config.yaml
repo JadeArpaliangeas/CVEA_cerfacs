@@ -1,0 +1,100 @@
+GENERAL:
+  seasons:
+  - summer
+  scenarios:
+  - 245
+  dataset_root: /scratch/globc/arpaliangeas/data
+  input_path: /scratch/globc/arpaliangeas/input
+  output_path: /scratch/globc/arpaliangeas/output
+  var_extr: tasmax
+  histo_extr:
+  - tasmax_day_CMCC-ESM2_historical_r1i1p1f1_gn_19500101-19741231.nc
+  - tasmax_day_CMCC-ESM2_historical_r1i1p1f1_gn_19750101-19991231.nc
+  - tasmax_day_CMCC-ESM2_historical_r1i1p1f1_gn_20000101-20141231.nc
+  scenario_extr:
+    585:
+    - tasmax_day_CMCC-ESM2_ssp585_r1i1p1f1_gn_20150101-20391231.nc
+    - tasmax_day_CMCC-ESM2_ssp585_r1i1p1f1_gn_20400101-20641231.nc
+    - tasmax_day_CMCC-ESM2_ssp585_r1i1p1f1_gn_20650101-20891231.nc
+    - tasmax_day_CMCC-ESM2_ssp585_r1i1p1f1_gn_20900101-21001231.nc
+    370:
+    - tasmax_day_CMCC-ESM2_ssp370_r1i1p1f1_gn_20150101-20391231.nc
+    - tasmax_day_CMCC-ESM2_ssp370_r1i1p1f1_gn_20400101-20641231.nc
+    - tasmax_day_CMCC-ESM2_ssp370_r1i1p1f1_gn_20650101-20891231.nc
+    - tasmax_day_CMCC-ESM2_ssp370_r1i1p1f1_gn_20900101-21001231.nc
+    245:
+    - tasmax_day_CMCC-ESM2_ssp245_r1i1p1f1_gn_20150101-20391231.nc
+    - tasmax_day_CMCC-ESM2_ssp245_r1i1p1f1_gn_20400101-20641231.nc
+    - tasmax_day_CMCC-ESM2_ssp245_r1i1p1f1_gn_20650101-20891231.nc
+    - tasmax_day_CMCC-ESM2_ssp245_r1i1p1f1_gn_20900101-21001231.nc
+    126:
+    - tasmax_day_CMCC-ESM2_ssp126_r1i1p1f1_gn_20150101-20391231.nc
+    - tasmax_day_CMCC-ESM2_ssp126_r1i1p1f1_gn_20400101-20641231.nc
+    - tasmax_day_CMCC-ESM2_ssp126_r1i1p1f1_gn_20650101-20891231.nc
+    - tasmax_day_CMCC-ESM2_ssp126_r1i1p1f1_gn_20900101-21001231.nc
+  landsea_mask: sftlf_fx_CESM2_historical_r9i1p1f1_gn.nc
+  min_lon: -10.0
+  max_lon: 29.0
+  min_lat: 36.0
+  max_lat: 66.0
+TRAIN:
+  n_memb: 1
+  lr0: 0.001
+  batch_size: 10
+  epochs: 3
+  strategy: ddp
+  stop_delta: 0.01
+  patience: 15
+  early_count: 0
+  old_valid_loss: 0.0
+  min_valid_epoch_loss: 100
+MODEL:
+  kernel_size: 4
+  init_channels: 8
+  image_channels: 3
+  latent_dim: 128
+  future_evaluation: true
+  past_evaluation: false
+  beta: 0.1
+  n_avg: 20
+  anomaly_percent: 99
+training_pipeline:
+  _target_: itwinai.pipeline.Pipeline
+  steps:
+    preprocessing-step:
+      _target_: itwinai.plugins.xtclim.preprocessing.preprocess_functions_2d_ssp_mod1.PreprocessData
+      dataset_root: ${GENERAL.dataset_root}
+      input_path: ${GENERAL.input_path}
+      output_path: ${GENERAL.output_path}
+      histo_extr: ${GENERAL.histo_extr}
+      min_lon: ${GENERAL.min_lon}
+      max_lon: ${GENERAL.max_lon}
+      min_lat: ${GENERAL.min_lat}
+      max_lat: ${GENERAL.max_lat}
+      scenarios: ${GENERAL.scenarios}
+      scenario_extr: ${GENERAL.scenario_extr}
+    preprocessing-split-step:
+      _target_: itwinai.plugins.xtclim.preprocessing.preprocess_2d_seasons_mod1.SplitPreprocessedData
+      input_path: ${GENERAL.input_path}
+      n_memb: ${TRAIN.n_memb}
+      scenarios: ${GENERAL.scenarios}
+    training-step:
+      _target_: itwinai.plugins.xtclim.src.trainer_mod1.TorchTrainer
+      input_path: ${GENERAL.input_path}
+      output_path: ${GENERAL.output_path}
+      seasons: ${GENERAL.seasons}
+      epochs: ${TRAIN.epochs}
+      lr: ${TRAIN.lr0}
+      batch_size: ${TRAIN.batch_size}
+      n_memb: ${TRAIN.n_memb}
+      beta: ${MODEL.beta}
+      n_avg: ${MODEL.n_avg}
+      stop_delta: ${TRAIN.stop_delta}
+      patience: ${TRAIN.patience}
+      early_count: ${TRAIN.early_count}
+      old_valid_loss: ${TRAIN.old_valid_loss}
+      min_valid_epoch_loss: ${TRAIN.min_valid_epoch_loss}
+      kernel_size: ${MODEL.kernel_size}
+      init_channels: ${MODEL.init_channels}
+      image_channels: ${MODEL.image_channels}
+      latent_dim: ${MODEL.latent_dim}
